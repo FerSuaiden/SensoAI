@@ -1,19 +1,26 @@
 import { NextResponse } from "next/server";
+import { DEFAULT_QUERY, parsePopulationQuestion, QueryError } from "@/lib/population";
+import { fetchPopulation, SidraDataUnavailableError } from "@/lib/sidra";
 
-const SIDRA_URL = "https://apisidra.ibge.gov.br/values/t/4709/n1/1/v/93/p/last%201";
-type SidraRow = Record<string, string>;
-function formatBrazilianNumber(value: string) { return new Intl.NumberFormat("pt-BR").format(Number(value.replaceAll(".", "").replace(",", "."))); }
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const response = await fetch(SIDRA_URL, { next: { revalidate: 60 * 60 * 24 } });
-    if (!response.ok) throw new Error(`A API do IBGE retornou ${response.status}.`);
-    const rows = (await response.json()) as SidraRow[];
-    const result = rows[1]; // A primeira linha contém os nomes das colunas.
-    if (!result?.V || !result.D3N) throw new Error("A resposta da API não possui o formato esperado.");
-    return NextResponse.json({ statistic: result.D2N, formattedValue: formatBrazilianNumber(result.V), unit: result.MN, geography: result.D1N, period: result.D3N, source: { name: "IBGE · SIDRA", table: "Tabela 4709", url: "https://sidra.ibge.gov.br/tabela/4709" } });
+    const params = new URL(request.url).searchParams;
+    if ([...params.keys()].some((key) => key !== "pergunta") || params.getAll("pergunta").length > 1) {
+      throw new QueryError("Use apenas o parâmetro ‘pergunta’, uma única vez.");
+    }
+    const question = params.get("pergunta");
+    const query = question === null ? DEFAULT_QUERY : parsePopulationQuestion(question);
+    return NextResponse.json(await fetchPopulation(query));
   } catch (error) {
+    if (error instanceof QueryError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof SidraDataUnavailableError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
     console.error("Erro ao consultar população no SIDRA", error);
-    return NextResponse.json({ error: "Não foi possível consultar a fonte oficial do IBGE agora. Tente novamente em instantes." }, { status: 502 });
+    return NextResponse.json({
+      error: "Não foi possível consultar a fonte oficial do IBGE agora. Tente novamente em instantes.",
+    }, { status: 502 });
   }
 }

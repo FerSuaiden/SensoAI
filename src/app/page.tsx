@@ -1,9 +1,9 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import type { PopulationResult } from "@/lib/population";
 
-type PopulationResult = { statistic: string; formattedValue: string; unit: string; geography: string; period: string; source: { name: string; table: string; url: string } };
-const exampleQuestions = ["Qual a população do Brasil?", "Quantas pessoas moravam no Brasil em 2022?"];
+const exampleQuestions = ["Qual a população do Brasil?", "Qual a população de MG em 2022?", "Quantos habitantes tem o DF?"];
 
 export default function Home() {
   const [question, setQuestion] = useState("");
@@ -13,21 +13,19 @@ export default function Home() {
 
   async function handleQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const normalizedQuestion = question.trim().toLocaleLowerCase("pt-BR");
-    if (!normalizedQuestion) return;
+    if (!question.trim() || isLoading) return;
     setResult(null); setMessage("");
-    if (!normalizedQuestion.includes("brasil") || (!normalizedQuestion.includes("popula") && !normalizedQuestion.includes("pessoas"))) {
-      setMessage("Neste primeiro recorte, eu respondo perguntas sobre a população do Brasil. Experimente uma das sugestões abaixo.");
-      return;
-    }
     setIsLoading(true);
     try {
-      const response = await fetch("/api/ibge/populacao");
+      const params = new URLSearchParams({ pergunta: question.trim() });
+      const response = await fetch(`/api/ibge/populacao?${params}`, { signal: AbortSignal.timeout(15_000) });
       const data = (await response.json()) as PopulationResult & { error?: string };
       if (!response.ok || data.error) throw new Error(data.error ?? "Não foi possível consultar a fonte oficial agora.");
       setResult(data);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Ocorreu um erro inesperado.");
+      setMessage(error instanceof Error && error.name === "TimeoutError"
+        ? "A consulta demorou mais que o esperado. Tente novamente em instantes."
+        : error instanceof Error ? error.message : "Ocorreu um erro inesperado.");
     } finally { setIsLoading(false); }
   }
 
@@ -40,12 +38,14 @@ export default function Home() {
       <section className="hero" id="inicio"><p className="eyebrow">Estatísticas públicas em linguagem natural</p><h1>Entenda o Brasil <em>pelos dados.</em></h1><p className="hero-copy">Faça uma pergunta. O Senso consulta a fonte oficial, mostra o dado e explica exatamente de onde ele veio.</p></section>
       <section className="query-card" aria-labelledby="consulta-heading">
         <div className="query-heading"><div><p className="section-label">Consulta</p><h2 id="consulta-heading">O que você quer saber?</h2></div><span className="mvp-tag">MVP · população</span></div>
-        <form onSubmit={handleQuestion} className="question-form"><label className="sr-only" htmlFor="question">Sua pergunta sobre dados brasileiros</label><input id="question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ex.: Qual a população do Brasil?" autoComplete="off" /><button type="submit" disabled={isLoading}>{isLoading ? "Consultando..." : "Consultar"}</button></form>
-        <div className="example-list" aria-label="Perguntas de exemplo">{exampleQuestions.map((example) => <button key={example} type="button" onClick={() => setQuestion(example)}>{example}</button>)}</div>
+        <p className="scope-note" id="query-scope">Censo 2022 · Brasil, estados e Distrito Federal. Use a sigla para consultar uma UF. Ainda não consultamos municípios ou outros anos.</p>
+        <form onSubmit={handleQuestion} className="question-form"><label className="sr-only" htmlFor="question">Sua pergunta sobre dados brasileiros</label><input id="question" value={question} onChange={(event) => { setQuestion(event.target.value); setResult(null); setMessage(""); }} placeholder="Ex.: Qual a população de SP em 2022?" autoComplete="off" maxLength={300} required disabled={isLoading} aria-describedby="query-scope" /><button type="submit" disabled={isLoading || !question.trim()}>{isLoading ? "Consultando..." : "Consultar"}</button></form>
+        <div className="example-list" aria-label="Perguntas de exemplo">{exampleQuestions.map((example) => <button key={example} type="button" disabled={isLoading} onClick={() => { setQuestion(example); setResult(null); setMessage(""); }}>{example}</button>)}</div>
+        {isLoading && <p role="status" className="scope-note">Consultando a fonte oficial do IBGE…</p>}
         {message && <p className="feedback" role="status">{message}</p>}
-        {result && <article className="answer" aria-live="polite"><p className="answer-kicker">Resposta encontrada</p><p className="answer-text">Em <strong>{result.period}</strong>, a {result.statistic.toLocaleLowerCase()} do {result.geography} era de</p><p className="answer-number">{result.formattedValue}</p><p className="answer-unit">{result.unit}</p><footer className="source"><span>Fonte: {result.source.name} · {result.source.table}</span><a href={result.source.url} target="_blank" rel="noreferrer">Ver tabela oficial ↗</a></footer></article>}
+        {result && <article className="answer" aria-live="polite"><p className="answer-kicker">Resposta encontrada</p><p className="answer-text">{result.statistic} em <strong>{result.period}</strong></p><p className="scope-note">Recorte: {result.geography} · {result.geographyLevel}</p><p className="answer-number">{result.formattedValue}</p><p className="answer-unit">{result.unit}</p><p className="scope-note">{result.note}</p><footer className="source"><span>Fonte: {result.source.name} · {result.source.table}</span><a href={result.source.url} target="_blank" rel="noreferrer">Ver tabela oficial ↗</a><a href={result.source.apiUrl} target="_blank" rel="noreferrer">Ver consulta na API ↗</a></footer></article>}
       </section>
-      <section className="principles" aria-label="Princípios do Senso AI"><article><span>01</span><h2>Dados, não opiniões</h2><p>O número vem da API oficial do IBGE. A IA não inventa uma resposta.</p></article><article><span>02</span><h2>Fonte sempre visível</h2><p>Cada resposta deve indicar tabela, período, unidade e recorte geográfico.</p></article><article><span>03</span><h2>Escopo honesto</h2><p>Começamos pequeno, validamos a qualidade e só então ampliamos as perguntas aceitas.</p></article></section>
+      <section className="principles" aria-label="Princípios do Senso AI"><article><span>01</span><h2>Dados, não opiniões</h2><p>O número vem da API oficial do IBGE. Nesta etapa, interpretamos perguntas por regras, sem IA generativa.</p></article><article><span>02</span><h2>Fonte sempre visível</h2><p>Cada resposta deve indicar tabela, período, unidade e recorte geográfico.</p></article><article><span>03</span><h2>Escopo honesto</h2><p>Começamos pequeno, validamos a qualidade e só então ampliamos as perguntas aceitas.</p></article></section>
     </main>
   );
 }
