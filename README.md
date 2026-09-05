@@ -1,4 +1,4 @@
-# Senso AI
+# Project - Senso AI
 
 Uma interface para consultar estatísticas públicas brasileiras em linguagem natural, com respostas verificáveis e fontes oficiais.
 
