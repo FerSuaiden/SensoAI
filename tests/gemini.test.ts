@@ -4,6 +4,8 @@ import { POST } from "../src/app/api/consulta/route";
 import { DEFAULT_GEMINI_MODEL } from "../src/lib/gemini-population";
 import { getInterpreterMode } from "../src/lib/llm-provider";
 import { interpretationSchema } from "../src/lib/population-interpretation";
+import { retrievePopulationContext } from "../src/lib/population-retrieval";
+import { interpretWithProvider } from "../src/lib/llm-provider";
 
 const variables = ["SENSO_INTERPRETER", "GEMINI_API_KEY", "GEMINI_MODEL", "OPENAI_API_KEY"] as const;
 const previous = Object.fromEntries(variables.map((name) => [name, process.env[name]]));
@@ -55,6 +57,9 @@ test("Gemini é o padrão e usa o mesmo contrato validado até o SIDRA", async (
       const body = JSON.parse(String(options?.body));
       assert.deepEqual(body.contents, [{ role: "user", parts: [{ text: question }] }]);
       assert.match(body.systemInstruction.parts[0].text, /Nunca descarte esses filtros/);
+      const context = JSON.parse(body.systemInstruction.parts[0].text.split("CONTEXTO_RECUPERADO_JSON:\n")[1]);
+      assert.deepEqual(context, retrievePopulationContext(question));
+      assert.ok(context.every((snippet: { table: string }) => snippet.table === "202"));
       assert.equal(body.generationConfig.responseMimeType, "application/json");
       assert.deepEqual(body.generationConfig.responseJsonSchema, interpretationSchema);
       assert.equal(body.generationConfig.maxOutputTokens, 400);
@@ -71,8 +76,15 @@ test("Gemini é o padrão e usa o mesmo contrato validado até o SIDRA", async (
   assert.equal(result.period, "2010");
   assert.equal(result.source.table, "Tabela 202");
   assert.equal(result.interpretation.method, "gemini");
+  assert.deepEqual(result.interpretation.context, retrievePopulationContext(question));
   assert.equal(calls.length, 2);
   assert.doesNotMatch(JSON.stringify(result), /test-key|systemInstruction/);
+});
+
+test("proposta sem referência recuperada não é executada mesmo quando o modelo a aceita", async (t) => {
+  const mock = t.mock.method(globalThis, "fetch", async () => Response.json(envelope()));
+  await assert.rejects(() => interpretWithProvider(question, "gemini", []), /referência compatível/);
+  assert.equal(mock.mock.callCount(), 1);
 });
 
 test("modelo Gemini é configurável sem mudar de provedor", async (t) => {

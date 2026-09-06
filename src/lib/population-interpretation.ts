@@ -7,7 +7,7 @@ export type LLMProvider = "gemini" | "openai";
 export type InterpreterMode = "rules" | LLMProvider;
 
 export type ConsultationResult = PopulationResult & {
-  interpretation: { method: InterpreterMode };
+  interpretation: { method: InterpreterMode; context: import("./population-retrieval").PopulationSnippet[] };
 };
 
 export class InterpretationError extends Error {

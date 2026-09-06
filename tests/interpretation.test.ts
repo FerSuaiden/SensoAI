@@ -3,6 +3,7 @@ import { afterEach, beforeEach, test } from "node:test";
 import { POST } from "../src/app/api/consulta/route";
 import { DEFAULT_QUERY, QueryError } from "../src/lib/population";
 import { InterpretationError, validateModelInterpretation } from "../src/lib/population-interpretation";
+import { retrievePopulationContext } from "../src/lib/population-retrieval";
 
 const previousMode = process.env.SENSO_INTERPRETER;
 const previousKey = process.env.OPENAI_API_KEY;
@@ -75,6 +76,7 @@ test("POST percorre OpenAI -> validador -> SIDRA e não usa número gerado", asy
       assert.deepEqual(body.input, [{ role: "user", content: question }]);
       assert.equal(body.tools, undefined);
       assert.match(body.instructions, /Nunca descarte esses filtros/);
+      assert.deepEqual(JSON.parse(body.instructions.split("CONTEXTO_RECUPERADO_JSON:\n")[1]), retrievePopulationContext(question));
       return Response.json(envelope());
     }
     assert.equal(url, "https://apisidra.ibge.gov.br/values/t/202/n3/31/v/93/p/2010/c2/0/c1/0/h/n");
@@ -88,6 +90,7 @@ test("POST percorre OpenAI -> validador -> SIDRA e não usa número gerado", asy
   assert.equal(result.period, "2010");
   assert.equal(result.source.table, "Tabela 202");
   assert.equal(result.interpretation.method, "openai");
+  assert.deepEqual(result.interpretation.context, retrievePopulationContext(question));
   assert.equal(calls.length, 2);
   assert.doesNotMatch(JSON.stringify(result), /test-key|instructions/);
 });
@@ -99,7 +102,7 @@ test("pergunta já reconhecida usa regras mesmo com OpenAI habilitada", async (t
   });
   const response = await POST(request({ pergunta: "Qual a população de MG em 2010?" }));
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).interpretation.method, "rules");
+  assert.deepEqual((await response.json()).interpretation, { method: "rules", context: [] });
 });
 
 test("modo rules sem chave funciona por regras", async (t) => {

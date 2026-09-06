@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "tsx --conditions=react-server --test tests/*.test.ts",
-    "eval:llm": "node --env-file=.env.local --conditions=react-server --import=tsx scripts/eval-interpretation.ts"
+    "eval:llm": "node --env-file=.env.local --conditions=react-server --import=tsx scripts/eval-interpretation.ts",
+    "eval:retrieval": "tsx --conditions=react-server scripts/eval-retrieval.ts"
   },
   "dependencies": {
     "next": "16.3.4",

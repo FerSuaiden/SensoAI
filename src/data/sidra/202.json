@@ -1,0 +1,147 @@
+{
+  "retrievedAt": "2026-09-06",
+  "metadataUrl": "https://servicodados.ibge.gov.br/api/v3/agregados/202/metadados",
+  "periodsUrl": "https://servicodados.ibge.gov.br/api/v3/agregados/202/periodos",
+  "metadata": {
+    "id": 202,
+    "nome": "População residente, por sexo e situação do domicílio",
+    "URL": "https://sidra.ibge.gov.br/tabela/202",
+    "pesquisa": "Censo Demográfico",
+    "assunto": "Pessoas",
+    "periodicidade": {
+      "frequencia": "anual",
+      "inicio": 1970,
+      "fim": 2010
+    },
+    "nivelTerritorial": {
+      "Administrativo": [
+        "N15",
+        "N102",
+        "N1",
+        "N10",
+        "N2",
+        "N8",
+        "N9",
+        "N6",
+        "N14",
+        "N7",
+        "N13",
+        "N11",
+        "N3"
+      ],
+      "Especial": [],
+      "IBGE": []
+    },
+    "variaveis": [
+      {
+        "id": 93,
+        "nome": "População residente",
+        "unidade": "Pessoas",
+        "sumarizacao": [
+          "nivelTerritorial"
+        ]
+      },
+      {
+        "id": 1000093,
+        "nome": "População residente - percentual do total geral",
+        "unidade": "%",
+        "sumarizacao": []
+      }
+    ],
+    "classificacoes": [
+      {
+        "id": 2,
+        "nome": "Sexo",
+        "sumarizacao": {
+          "status": true,
+          "excecao": []
+        },
+        "categorias": [
+          {
+            "id": 0,
+            "nome": "Total",
+            "unidade": null,
+            "nivel": 0
+          },
+          {
+            "id": 4,
+            "nome": "Homens",
+            "unidade": null,
+            "nivel": 1
+          },
+          {
+            "id": 5,
+            "nome": "Mulheres",
+            "unidade": null,
+            "nivel": 1
+          }
+        ]
+      },
+      {
+        "id": 1,
+        "nome": "Situação do domicílio",
+        "sumarizacao": {
+          "status": true,
+          "excecao": []
+        },
+        "categorias": [
+          {
+            "id": 0,
+            "nome": "Total",
+            "unidade": null,
+            "nivel": 0
+          },
+          {
+            "id": 1,
+            "nome": "Urbana",
+            "unidade": null,
+            "nivel": 1
+          },
+          {
+            "id": 2,
+            "nome": "Rural",
+            "unidade": null,
+            "nivel": 1
+          }
+        ]
+      }
+    ]
+  },
+  "periods": [
+    {
+      "id": "1970",
+      "literals": [
+        "1970"
+      ],
+      "modificacao": "03/10/2001"
+    },
+    {
+      "id": "1980",
+      "literals": [
+        "1980"
+      ],
+      "modificacao": "04/10/2001"
+    },
+    {
+      "id": "1991",
+      "literals": [
+        "1991"
+      ],
+      "modificacao": "01/01/0001"
+    },
+    {
+      "id": "2000",
+      "literals": [
+        "2000"
+      ],
+      "modificacao": "18/09/2002"
+    },
+    {
+      "id": "2010",
+      "literals": [
+        "2010"
+      ],
+      "modificacao": "01/02/2019"
+    }
+  ]
+}

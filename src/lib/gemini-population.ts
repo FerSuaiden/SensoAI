@@ -2,6 +2,7 @@ import "server-only";
 import { getQuestionPeriod, QueryError, validateQuestionText } from "./population";
 import { buildPopulationInstructions } from "./population-prompt";
 import { InterpretationError, interpretationSchema, validateModelInterpretation } from "./population-interpretation";
+import { retrievePopulationContext, type PopulationSnippet } from "./population-retrieval";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite";
 
@@ -35,7 +36,7 @@ function readOutputText(value: unknown): string {
   return text;
 }
 
-export async function interpretWithGemini(input: string) {
+export async function interpretWithGemini(input: string, context: readonly PopulationSnippet[] = retrievePopulationContext(input)) {
   const question = validateQuestionText(input);
   getQuestionPeriod(question);
   const apiKey = process.env.GEMINI_API_KEY?.trim();
@@ -50,7 +51,7 @@ export async function interpretWithGemini(input: string) {
       cache: "no-store",
       signal: AbortSignal.timeout(12_000),
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: buildPopulationInstructions() }] },
+        systemInstruction: { parts: [{ text: buildPopulationInstructions(context) }] },
         contents: [{ role: "user", parts: [{ text: question }] }],
         generationConfig: {
           responseMimeType: "application/json",

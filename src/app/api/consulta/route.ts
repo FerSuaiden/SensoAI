@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     }
     const interpretation = await interpretQuestion(body.pergunta);
     const result = await fetchPopulation(interpretation.query);
-    return json({ ...result, interpretation: { method: interpretation.method } });
+    return json({ ...result, interpretation: { method: interpretation.method, context: interpretation.context } });
   } catch (error) {
     if (error instanceof QueryError) return json({ error: error.message }, 400);
     if (error instanceof InterpretationError) return json({ error: error.message }, error.status);

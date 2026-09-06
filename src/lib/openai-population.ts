@@ -2,6 +2,7 @@ import "server-only";
 import { getQuestionPeriod, QueryError, validateQuestionText } from "./population";
 import { buildPopulationInstructions } from "./population-prompt";
 import { InterpretationError, interpretationSchema, validateModelInterpretation } from "./population-interpretation";
+import { retrievePopulationContext, type PopulationSnippet } from "./population-retrieval";
 
 export const DEFAULT_OPENAI_MODEL = "gpt-4.1-mini";
 
@@ -25,7 +26,7 @@ function readOutputText(value: unknown): string {
   return texts[0];
 }
 
-export async function interpretWithOpenAI(input: string) {
+export async function interpretWithOpenAI(input: string, context: readonly PopulationSnippet[] = retrievePopulationContext(input)) {
   const question = validateQuestionText(input);
   getQuestionPeriod(question);
   const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -38,7 +39,7 @@ export async function interpretWithOpenAI(input: string) {
       signal: AbortSignal.timeout(12_000),
       body: JSON.stringify({
         model: process.env.OPENAI_MODEL?.trim() || DEFAULT_OPENAI_MODEL,
-        instructions: buildPopulationInstructions(),
+        instructions: buildPopulationInstructions(context),
         input: [{ role: "user", content: question }],
         text: { format: { type: "json_schema", name: "population_interpretation", strict: true, schema: interpretationSchema } },
         max_output_tokens: 400,

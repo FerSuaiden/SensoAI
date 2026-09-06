@@ -1,13 +1,14 @@
 import "server-only";
 import { getQuestionPeriod, normalizePopulationQuestion, parsePopulationQuestion, QueryError, validateQuestionText } from "./population";
 import { getInterpreterMode, interpretWithProvider } from "./llm-provider";
+import { retrievePopulationContext, type PopulationSnippet } from "./population-retrieval";
 
 export async function interpretQuestion(input: unknown) {
   const question = validateQuestionText(input);
   const mode = getInterpreterMode();
   // Caminho determinístico primeiro: exemplos já reconhecidos não gastam tokens.
   try {
-    return { query: parsePopulationQuestion(question), method: "rules" as const };
+    return { query: parsePopulationQuestion(question), method: "rules" as const, context: [] as PopulationSnippet[] };
   } catch (error) {
     if (!(error instanceof QueryError) || mode === "rules") throw error;
   }
@@ -17,6 +18,7 @@ export async function interpretQuestion(input: unknown) {
   if (/\b(mulheres|homens|feminina|masculina|urbana|rural|idade|idosos|criancas|municipio|cidade|capital|pib|inflacao)\b/.test(normalized)) {
     throw new QueryError("Esse recorte ainda não é suportado. Consulte a população total de Brasil ou de uma UF.");
   }
-  const query = await interpretWithProvider(question, mode);
-  return { query, method: mode };
+  const context = retrievePopulationContext(question);
+  const query = await interpretWithProvider(question, mode, context);
+  return { query, method: mode, context };
 }

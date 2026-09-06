@@ -49,6 +49,23 @@ export default function Home() {
         {message && <p className="feedback" role="status">{message}</p>}
         {result && result.interpretation.method !== "rules" && <p className="scope-note">A IA interpretou sua pergunta. Confira o local e o ano abaixo; o número foi obtido no IBGE.</p>}
         {result && <article className="answer" aria-live="polite"><p className="answer-kicker">Resposta encontrada</p><p className="answer-text">{result.statistic} em <strong>{result.period}</strong></p><p className="scope-note">Recorte: {result.geography} · {result.geographyLevel}</p><p className="answer-number">{result.formattedValue}</p><p className="answer-unit">{result.unit}</p><p className="scope-note">{result.note}</p><footer className="source"><span>Fonte: {result.source.name} · {result.source.table}</span><a href={result.source.url} target="_blank" rel="noreferrer">Ver tabela oficial ↗</a><a href={result.source.apiUrl} target="_blank" rel="noreferrer">Ver consulta na API ↗</a></footer></article>}
+        {result && result.interpretation.context.length > 0 && (
+          <details className="reference-context">
+            <summary>Referências fornecidas à IA para interpretar a pergunta</summary>
+            <p className="scope-note">Resumos dos metadados oficiais e limites do Senso AI. O valor populacional vem da consulta ao SIDRA indicada acima.</p>
+            {result.interpretation.context.map((snippet) => (
+              <article key={snippet.id}>
+                <h3>{snippet.title}</h3>
+                <p>{snippet.text}</p>
+                <p className="scope-note">Fonte conferida em <time dateTime={snippet.retrievedAt}>{snippet.retrievedAt.split("-").reverse().join("/")}</time>.</p>
+                <div className="source">
+                  <a href={snippet.metadataUrl} target="_blank" rel="noreferrer">Ver metadados oficiais ↗</a>
+                  <a href={snippet.periodsUrl} target="_blank" rel="noreferrer">Ver períodos oficiais ↗</a>
+                </div>
+              </article>
+            ))}
+          </details>
+        )}
       </section>
       <section className="principles" aria-label="Princípios do Senso AI"><article><span>01</span><h2>Dados, não opiniões</h2><p>Interpretamos sua pergunta e buscamos o número na API oficial do IBGE, sempre com fonte verificável.</p></article><article><span>02</span><h2>Fonte sempre visível</h2><p>Cada resposta deve indicar tabela, período, unidade e recorte geográfico.</p></article><article><span>03</span><h2>Escopo honesto</h2><p>Começamos pequeno, validamos a qualidade e só então ampliamos as perguntas aceitas.</p></article></section>
     </main>
