@@ -1,61 +1,98 @@
-# Project - Senso AI
+# Senso AI
 
 Uma interface para consultar estatísticas públicas brasileiras em linguagem natural, com respostas verificáveis e fontes oficiais.
 
 ## Estado atual
 
-Perguntas simples sobre a população residente do Brasil, dos estados e do Distrito Federal consultam a tabela 4709 do SIDRA/IBGE. A resposta exibe valor, unidade, período, recorte geográfico e links para a tabela e a consulta exata na API.
+Consultamos a população residente de Brasil, estados e Distrito Federal nos **Censos 2000, 2010 e 2022**. Sem ano, usamos 2022. As tabelas oficiais são 202 e 4709, conforme o período.
 
-O recorte é o **Censo 2022**, também quando a pergunta omite o ano. Não há LLM/RAG: regras no servidor transformam a pergunta em uma consulta estruturada. Anos diferentes, população atual, municípios, comparações e filtros demográficos são recusados.
+A interpretação tem dois caminhos: regras para frases já reconhecidas e, quando habilitada, OpenAI para perguntas mais livres. A IA propõe filtros; o número, a unidade, o período e a fonte vêm do SIDRA. Ainda não há RAG nem embeddings.
 
-Exemplos:
+Municípios, população atual, outros indicadores, comparações e filtros demográficos permanecem fora do escopo. São Paulo e Rio de Janeiro precisam de sigla ou indicação de estado para evitar confusão com a cidade.
 
-- “Qual a população do Brasil?”
-- “Qual a população de MG em 2022?”
-- “Qual a população do estado de São Paulo?”
-- “Quantos habitantes tem o DF?”
-
-Para São Paulo e Rio de Janeiro, use a sigla ou indique “estado” para evitar confusão com a cidade. O parser reconhece formas limitadas de perguntar; frases fora desses padrões recebem orientação para reformulação.
-
-## Rodando localmente
+## Rodando sem chave
 
 ```bash
 npm install
 npm run dev
 ```
 
-Abra `http://localhost:3000`.
+Abra `http://localhost:3000`. O modo padrão usa regras:
 
-## Comandos úteis
+- “Qual a população do Brasil?”
+- “Qual a população de MG em 2010?”
+- “Quantas pessoas moravam no Brasil em 2000?”
+
+## Habilitando a interpretação com IA
+
+Copie `.env.example` para `.env.local` e configure:
+
+```dotenv
+SENSO_INTERPRETER=openai
+OPENAI_API_KEY=sua_chave_local
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+Edite a chave apenas no arquivo local. `.env.local` está no `.gitignore`; `.env.example` contém somente o modelo de configuração e pode ser versionado. A chave é lida no servidor, sem prefixo `NEXT_PUBLIC_`. Reinicie `npm run dev` após configurar.
+
+O modelo escolhido suporta saída estruturada e pode ser alterado pela variável de ambiente, desde que seja compatível com a Responses API e a configuração enviada. A integração usa `fetch` diretamente, com limite de saída de 400 tokens, timeout de 12 segundos e sem retries automáticos.
+
+Com IA habilitada, experimente “Me conta quantos habitantes havia em MG em 2010”. Frases reconhecidas pelas regras continuam sem chamada ao modelo. As demais enviam o texto da pergunta à OpenAI e consomem tokens da API. Falhas do modelo recebem mensagem de erro; não são convertidas em uma resposta estatística.
+
+A implementação foi verificada com respostas simuladas. A avaliação com o modelo real exige chave e acesso ao modelo na sua conta. Ela ainda precisa ser executada neste projeto.
+
+## Verificação e avaliação
 
 ```bash
-npm run lint
 npm test
+npm run lint
 npm run build
 ```
 
-## Onde aprender sobre o projeto
+Os testes não fazem chamadas pagas. A avaliação abaixo é separada e opcional: faz até 12 chamadas reais ao modelo, sem consultar o SIDRA. Requer `.env.local` com chave e gera consumo na API:
 
-A pasta [`conhecimento`](./conhecimento) registra as decisões de arquitetura e os conceitos relevantes para estudo e entrevistas.
+```bash
+npm run eval:llm
+```
 
-Comece por [consultas estruturadas](./conhecimento/04-consultas-estruturadas-e-interpretacao.md), [validação e cache](./conhecimento/05-validacao-cache-e-falhas.md) e [testes](./conhecimento/06-testes-de-consultas.md). Pela configuração existente do `.gitignore`, essa pasta fica apenas no workspace local.
+Ela compara território e ano para perguntas suportadas e espera recusa para ambiguidades e pedidos fora do escopo. Falhas de rede não contam como recusas corretas. Não é uma prova de segurança ou correção para todas as perguntas.
 
-## API e organização
+## Fluxo e arquivos
 
-`GET /api/ibge/populacao?pergunta=Qual%20a%20popula%C3%A7%C3%A3o%20de%20MG%20em%202022%3F`
+```text
+page.tsx
+  -> POST /api/consulta
+  -> interpret-question.ts: tenta regras; se habilitado, usa OpenAI quando necessário
+  -> population.ts: valida território e período
+  -> population-catalog.ts + sidra.ts: escolhem a consulta e obtêm o dado
+  -> resultado com recorte e fonte oficial
+```
 
-Sem parâmetros, a rota mantém a consulta do Brasil em 2022. Somente `pergunta` é aceito, uma vez, com até 300 caracteres. Entradas fora do escopo recebem HTTP 400; observações sem valor numérico disponível, 404; falhas da fonte ou formato inesperado, 502.
+- `src/lib/population.ts`: parser por regras, tipos e validação de filtros.
+- `src/lib/population-catalog.ts`: períodos, tabelas e categorias permitidas.
+- `src/lib/interpret-question.ts`: escolha entre regras e IA.
+- `src/lib/openai-population.ts`: chamada à OpenAI, prompt e tratamento da resposta.
+- `src/lib/population-interpretation.ts`: schema JSON, validação da proposta e erros de interpretação.
+- `src/lib/sidra.ts`: consulta oficial, cache de 24 horas e validação do dado.
+- `tests/`: testes determinísticos e de integração com mocks.
+- `scripts/eval-interpretation.ts`: avaliação opt-in com o modelo real.
 
-- `src/lib/population.ts`: tipos, catálogo de UFs e interpretação da pergunta.
-- `src/lib/sidra.ts`: URL, cache de 24 horas, timeout e validação do dado oficial.
-- `src/app/api/ibge/populacao/route.ts`: entrada HTTP e tratamento dos erros.
-- `tests/`: testes de interpretação, contrato dos dados e rota, sem depender da rede.
+## API
 
-## Próxima evolução
+A interface envia `POST /api/consulta` com JSON `{ "pergunta": "Qual a população de MG em 2010?" }`. São aceitos apenas esse campo e perguntas de até 300 caracteres, com limite de 4 KiB no corpo. O resultado inclui `interpretation.method` (`rules` ou `openai`), além dos campos estatísticos existentes.
 
-Criar um catálogo para mais indicadores e períodos, com validação dos filtros de cada tabela. Depois, um LLM poderá propor consultas estruturadas a partir de frases mais livres, passando por validação no servidor antes de consultar o IBGE.
+A rota anterior `GET /api/ibge/populacao?pergunta=...` continua disponível e usa exclusivamente regras. Sem parâmetros, consulta Brasil em 2022.
 
-## Fonte de dados
+Na nova rota, 400 indica entrada inválida ou não suportada; 413, corpo muito grande; 415, tipo de conteúdo incorreto; 404, ausência de valor numérico; 502, falha na interpretação ou na fonte; e 503, configuração/serviço de IA indisponível. O cliente tem timeout de 30 segundos para interpretação e consulta em sequência.
 
-- [SIDRA / IBGE](https://sidra.ibge.gov.br/)
+## Onde aprender e quando entra RAG
+
+A pasta [`conhecimento`](./conhecimento) registra conceitos, decisões, dificuldades e explicações para entrevistas. Ela permanece local conforme o `.gitignore` existente.
+
+Leia [integração do LLM](./conhecimento/09-llm-com-saida-estruturada.md) e [plano do RAG](./conhecimento/10-quando-e-como-fazer-rag.md). O próximo passo de RAG será criar uma pequena base de descrições e notas oficiais, recuperar os trechos relevantes para a pergunta e usá-los para orientar a escolha de tabela ou explicar metodologia. O catálogo atual enviado integralmente no prompt não é uma busca RAG.
+
+## Fontes
+
+- [Tabela 202 — População residente](https://sidra.ibge.gov.br/tabela/202)
 - [Tabela 4709 — População residente](https://sidra.ibge.gov.br/tabela/4709)
+- [OpenAI Docs — Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { DEFAULT_QUERY, parsePopulationQuestion, QueryError } from "../src/lib/population";
+import { DEFAULT_QUERY, parsePopulationQuestion, QueryError, validatePopulationQuery } from "../src/lib/population";
 import { buildPopulationUrl, parseSidraPopulation, SidraDataUnavailableError } from "../src/lib/sidra";
 
 for (const [question, code, level] of [
@@ -24,7 +24,7 @@ for (const [question, code, level] of [
 }
 
 for (const question of [
-  "Qual a população do Brasil em 2010?", "Qual a população do Brasil em 2026?",
+  "Qual a população do Brasil em 2015?", "Qual a população do Brasil em 2026?",
   "Qual a população atual do Brasil?", "Qual a população do Brasil hoje?",
   "Qual a população do Brasil em 2010 e 2022?", "Qual a população de SP e MG?",
   "Qual a população de São Paulo?", "Qual a população do Rio de Janeiro?",
@@ -34,9 +34,64 @@ for (const question of [
   "Qual a população do Brasil em janeiro de 2022?", "Qual a população do Brasil em 22?",
   "Qual a população do Brasil sem SP?", "Quanto cresceu a população do Brasil?",
   "Qual a população do Brasil em 2022 ou hoje?", "", " ", "a".repeat(301),
+  "Qual a população do Brasil no Censo de 1991?",
+  "Qual a população de MG em janeiro de 2010?",
+  "Qual a população de MG em 2010 sem homens?",
+  "Qual a população urbana de MG em 2000?",
 ]) {
   test(`recusa sem substituir o recorte: ${question.slice(0, 80)}`, () => {
     assert.throws(() => parsePopulationQuestion(question), QueryError);
+  });
+}
+
+for (const [question, period, code] of [
+  ["Qual era a população do Brasil em 2010?", "2010", "1"],
+  ["Quantas pessoas moravam no Brasil em 2000?", "2000", "1"],
+  ["Qual a população de MG no Censo de 2010?", "2010", "31"],
+  ["Qual a população de SP no Censo 2000?", "2000", "35"],
+]) {
+  test(`preserva o ano explícito: ${question}`, () => {
+    const query = parsePopulationQuestion(question);
+    assert.equal(query.period, period);
+    assert.equal(query.territory.code, code);
+    assert.match(buildPopulationUrl(query), new RegExp(`/t/202/n[13]/${code}/v/93/p/${period}/c2/0/c1/0/h/n$`));
+  });
+}
+
+for (const value of [
+  null, [], {}, { ...DEFAULT_QUERY, period: 2010 }, { ...DEFAULT_QUERY, period: "2015" },
+  { ...DEFAULT_QUERY, table: "200" }, { ...DEFAULT_QUERY, url: "https://example.com" },
+  { ...DEFAULT_QUERY, territory: { code: "35", name: "Brasil", level: "3" } },
+  { ...DEFAULT_QUERY, territory: { code: "3550308", name: "São Paulo", level: "6" } },
+  { ...DEFAULT_QUERY, territory: { ...DEFAULT_QUERY.territory, extra: "ignored?" } },
+]) {
+  test(`valida objetos recebidos em runtime: ${JSON.stringify(value)}`, () => {
+    assert.throws(() => validatePopulationQuery(value), QueryError);
+  });
+}
+
+for (const period of ["2000", "2010"] as const) {
+  test(`valida totais e fonte da tabela 202 em ${period}`, () => {
+    const query = validatePopulationQuery({ ...DEFAULT_QUERY, period });
+    const historicalRow = {
+      ...row, D3C: period, D3N: period, V: period === "2000" ? "169799170" : "190755799",
+      D4C: "0", D4N: "Total", D5C: "0", D5N: "Total",
+    };
+    const result = parseSidraPopulation([historicalRow], query);
+    assert.equal(result.source.table, "Tabela 202");
+    assert.equal(result.source.url, "https://sidra.ibge.gov.br/tabela/202");
+    assert.equal(result.period, period);
+    assert.match(result.note, new RegExp(`Censo Demográfico ${period}`));
+    assert.equal(result.value, Number(historicalRow.V));
+    for (const changes of [
+      { D4C: "4", D4N: "Homens" }, { D5C: "1", D5N: "Urbana" },
+      { D4C: undefined }, { D5N: undefined }, { D6C: "0", D6N: "Total" },
+      { D3C: "2022", D3N: "2022" },
+    ]) {
+      assert.throws(() => parseSidraPopulation([{ ...historicalRow, ...changes }], query));
+    }
+    assert.throws(() => parseSidraPopulation([historicalRow], DEFAULT_QUERY));
+    assert.throws(() => parseSidraPopulation([{ ...row, D4C: "0", D4N: "Total" }], DEFAULT_QUERY));
   });
 }
 

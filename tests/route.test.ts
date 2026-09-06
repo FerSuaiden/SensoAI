@@ -9,12 +9,34 @@ function request(params = "") {
 test("rota valida entradas antes de consultar o IBGE", async (t) => {
   const fetchMock = t.mock.method(globalThis, "fetch", async () => { throw new Error("Não deve consultar"); });
   for (const params of ["?pergunta=", "?ano=2010", "?pergunta=a&pergunta=b",
-    `?${new URLSearchParams({ pergunta: "Qual a população do Brasil em 2010?" })}`]) {
+    `?${new URLSearchParams({ pergunta: "Qual a população do Brasil em 2015?" })}`]) {
     const response = await GET(request(params));
     assert.equal(response.status, 400);
     assert.equal(typeof (await response.json()).error, "string");
   }
   assert.equal(fetchMock.mock.callCount(), 0);
+});
+
+test("rota escolhe a tabela histórica e não mistura cache de períodos", async (t) => {
+  const fetchMock = t.mock.method(globalThis, "fetch", async (input: Parameters<typeof fetch>[0]) => {
+    const period = String(input).includes("/p/2000/") ? "2000" : "2010";
+    return Response.json([{
+      NC: "3", D1C: "31", D1N: "Minas Gerais", D2C: "93", D2N: "População residente",
+      D3C: period, D3N: period, MC: "45", MN: "Pessoas",
+      V: period === "2000" ? "17891494" : "19597330",
+      D4C: "0", D4N: "Total", D5C: "0", D5N: "Total",
+    }]);
+  });
+  for (const [period, value] of [["2000", 17891494], ["2010", 19597330]] as const) {
+    const response = await GET(request(`?${new URLSearchParams({ pergunta: `Qual a população de MG em ${period}?` })}`));
+    assert.equal(response.status, 200);
+    const result = await response.json();
+    assert.equal(result.value, value);
+    assert.equal(result.period, period);
+    assert.equal(result.source.table, "Tabela 202");
+    assert.match(result.source.apiUrl, new RegExp(`/p/${period}/c2/0/c1/0/h/n$`));
+  }
+  assert.notEqual(fetchMock.mock.calls[0].arguments[0], fetchMock.mock.calls[1].arguments[0]);
 });
 
 test("rota encaminha UF e devolve o dado oficial", async (t) => {
