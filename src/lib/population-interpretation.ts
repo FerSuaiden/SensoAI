@@ -1,10 +1,13 @@
 import {
-  getQuestionPeriod, QueryError, validatePopulationQuery,
+  getQuestionPeriod, normalizePopulationQuestion, QueryError, validatePopulationQuery,
   type PopulationQuery, type PopulationResult,
 } from "./population";
 
+export type LLMProvider = "gemini" | "openai";
+export type InterpreterMode = "rules" | LLMProvider;
+
 export type ConsultationResult = PopulationResult & {
-  interpretation: { method: "rules" | "openai" };
+  interpretation: { method: InterpreterMode };
 };
 
 export class InterpretationError extends Error {
@@ -55,12 +58,18 @@ export function validateModelInterpretation(value: unknown, question: string): P
       : "Ainda consulto apenas população total de Brasil e UFs nos censos de 2000, 2010 e 2022. Reformule sem comparações ou filtros demográficos.");
   }
   if (result.status !== "supported") throw new InterpretationError();
+  let query: PopulationQuery;
   try {
-    const query = validatePopulationQuery(result.query);
+    query = validatePopulationQuery(result.query);
     // Mesmo um objeto válido não pode substituir o ano escrito na pergunta.
     if (query.period !== getQuestionPeriod(question)) throw new InterpretationError();
-    return query;
   } catch {
     throw new InterpretationError("A interpretação não corresponde a uma consulta permitida. Reformule indicando a UF e o ano.");
   }
+  // Um recorte nacional válido no catálogo ainda precisa estar identificado na pergunta.
+  if (query.territory.level === "1"
+    && !/\b(brasil|brazil|brasileir[oa]s?)\b/.test(normalizePopulationQuestion(question))) {
+    throw new QueryError("Indique o país explicitamente. Para consultar o total nacional, escreva Brasil na pergunta.");
+  }
+  return query;
 }

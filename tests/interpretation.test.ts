@@ -48,6 +48,16 @@ test("interpretação estruturada aceita apenas consulta válida e período fiel
   }
 });
 
+test("modelo não pode deduzir Brasil quando o país não foi identificado", () => {
+  const national = { status: "supported", query: DEFAULT_QUERY };
+  for (const text of ["Quantas pessoas viviam no país?", "Qual era a população?", "E o total nacional?"]) {
+    assert.throws(() => validateModelInterpretation(national, text), QueryError);
+  }
+  for (const text of ["Me diga a população do Brasil", "Qual era a população brasileira?"]) {
+    assert.deepEqual(validateModelInterpretation(national, text), DEFAULT_QUERY);
+  }
+});
+
 test("POST percorre OpenAI -> validador -> SIDRA e não usa número gerado", async (t) => {
   const calls: string[] = [];
   t.mock.method(globalThis, "fetch", async (input: Parameters<typeof fetch>[0], options?: RequestInit) => {
@@ -92,8 +102,8 @@ test("pergunta já reconhecida usa regras mesmo com OpenAI habilitada", async (t
   assert.equal((await response.json()).interpretation.method, "rules");
 });
 
-test("modo padrão sem chave funciona por regras", async (t) => {
-  delete process.env.SENSO_INTERPRETER;
+test("modo rules sem chave funciona por regras", async (t) => {
+  process.env.SENSO_INTERPRETER = "rules";
   delete process.env.OPENAI_API_KEY;
   t.mock.method(globalThis, "fetch", async () => Response.json([row]));
   assert.equal((await POST(request({ pergunta: "Qual a população de MG em 2010?" }))).status, 200);

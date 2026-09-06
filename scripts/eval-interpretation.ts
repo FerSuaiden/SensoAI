@@ -1,7 +1,8 @@
-import { interpretWithOpenAI } from "../src/lib/openai-population";
+import { getInterpreterMode, interpretWithProvider } from "../src/lib/llm-provider";
 import { QueryError } from "../src/lib/population";
+import { InterpretationError } from "../src/lib/population-interpretation";
 
-// Avaliação opt-in: faz chamadas pagas ao modelo, sem consultar o SIDRA.
+// Avaliação opt-in: consome a cota/tokens do provedor escolhido, sem consultar o SIDRA.
 const cases = [
   { question: "Me conta quantos habitantes havia em MG em 2010", code: "31", period: "2010" },
   { question: "Gostaria de saber o total de moradores do Brasil em 2000", code: "1", period: "2000" },
@@ -18,12 +19,15 @@ const cases = [
 ];
 
 async function main() {
-  if (!process.env.OPENAI_API_KEY?.trim()) throw new Error("Configure OPENAI_API_KEY em .env.local antes da avaliação.");
-  console.log(`Avaliando ${cases.length} perguntas com o modelo configurado. Isso consome tokens da API.`);
+  const provider = getInterpreterMode();
+  if (provider === "rules") throw new Error("Escolha gemini ou openai para avaliar o modelo.");
+  const key = provider === "gemini" ? process.env.GEMINI_API_KEY : process.env.OPENAI_API_KEY;
+  if (!key?.trim()) throw new Error("Configure a chave do provedor escolhido em .env.local antes da avaliação.");
+  console.log(`Avaliando ${cases.length} perguntas com ${provider}. Isso consome a cota/tokens da API.`);
   let passed = 0;
   for (const item of cases) {
     try {
-      const result = await interpretWithOpenAI(item.question);
+      const result = await interpretWithProvider(item.question, provider);
       const ok = result.territory.code === item.code && result.period === item.period;
       passed += Number(ok);
       console.log(`${ok ? "PASS" : "FAIL"}: ${item.question} -> ${result.territory.name}, ${result.period}`);
@@ -31,7 +35,13 @@ async function main() {
       const ok = item.code === undefined && error instanceof QueryError;
       passed += Number(ok);
       // Não imprimir o objeto de erro do fornecedor, credenciais ou headers.
-      console.log(`${ok ? "PASS" : "FAIL"}: ${item.question} -> ${error instanceof QueryError ? "recusada/ambígua" : "falha da integração"}`);
+      const detail = error instanceof QueryError ? "recusada/ambígua"
+        : error instanceof InterpretationError ? error.message : "falha da integração";
+      console.log(`${ok ? "PASS" : "FAIL"}: ${item.question} -> ${detail}`);
+      if (error instanceof InterpretationError && error.status === 503) {
+        console.log("Avaliação interrompida: confira configuração, disponibilidade ou cota antes de repetir.");
+        break;
+      }
     }
   }
   console.log(`${passed}/${cases.length} casos aprovados. Essa amostra não prova correção para todas as perguntas.`);

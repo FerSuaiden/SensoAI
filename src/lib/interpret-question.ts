@@ -1,12 +1,10 @@
 import "server-only";
 import { getQuestionPeriod, normalizePopulationQuestion, parsePopulationQuestion, QueryError, validateQuestionText } from "./population";
-import { interpretWithOpenAI } from "./openai-population";
-import { InterpretationError } from "./population-interpretation";
+import { getInterpreterMode, interpretWithProvider } from "./llm-provider";
 
 export async function interpretQuestion(input: unknown) {
   const question = validateQuestionText(input);
-  const mode = process.env.SENSO_INTERPRETER || "rules";
-  if (!["rules", "openai"].includes(mode)) throw new InterpretationError("O serviço de interpretação está indisponível.", 503);
+  const mode = getInterpreterMode();
   // Caminho determinístico primeiro: exemplos já reconhecidos não gastam tokens.
   try {
     return { query: parsePopulationQuestion(question), method: "rules" as const };
@@ -19,6 +17,6 @@ export async function interpretQuestion(input: unknown) {
   if (/\b(mulheres|homens|feminina|masculina|urbana|rural|idade|idosos|criancas|municipio|cidade|capital|pib|inflacao)\b/.test(normalized)) {
     throw new QueryError("Esse recorte ainda não é suportado. Consulte a população total de Brasil ou de uma UF.");
   }
-  const query = await interpretWithOpenAI(question);
-  return { query, method: "openai" as const };
+  const query = await interpretWithProvider(question, mode);
+  return { query, method: mode };
 }
