@@ -42,3 +42,7 @@ yarn-error.log*
 next-env.d.ts
 
 conhecimento/
+
+# Local source review reports and temporary snapshot writes
+/.senso/
+/src/data/sidra/.update-*/

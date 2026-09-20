@@ -10,7 +10,9 @@
     "test": "tsx --conditions=react-server --test tests/*.test.ts",
     "eval:llm": "node --env-file=.env.local --conditions=react-server --import=tsx scripts/eval-interpretation.ts",
     "eval:retrieval": "tsx --conditions=react-server scripts/eval-retrieval.ts",
-    "eval:sources": "node --env-file=.env.local --conditions=react-server --import=tsx scripts/eval-sources.ts"
+    "eval:sources": "node --env-file=.env.local --conditions=react-server --import=tsx scripts/eval-sources.ts",
+    "sources:check": "tsx scripts/check-sources.ts",
+    "sources:apply": "tsx scripts/apply-sources.ts"
   },
   "dependencies": {
     "next": "16.3.4",

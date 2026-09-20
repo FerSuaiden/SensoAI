@@ -20,7 +20,7 @@ Na interface, escolha **Entender a fonte** e experimente:
 
 O modo explica tabela, períodos, unidade, recortes geográficos e classificações, com citações numeradas e evidências conferíveis. Informe uma tabela ou um ano; aqui não há ano padrão. A IA seleciona até três fatos da base recuperada e o servidor resolve seus textos e URLs. A explicação distingue capacidades da fonte de limitações do aplicativo.
 
-Esse modo precisa de Gemini ou OpenAI configurado. Não consulta valores populacionais nem responde livremente sobre metodologia, margem de erro ou causas. Perguntas numéricas continuam na opção **Consultar população**. Os snapshots usados nas explicações foram coletados em 06/09/2026; a data aparece junto da fonte.
+Esse modo precisa de Gemini ou OpenAI configurado. Não consulta valores populacionais nem responde livremente sobre metodologia, margem de erro ou causas. Perguntas numéricas continuam na opção **Consultar população**. Os snapshots usados nas explicações foram conferidos em 20/09/2026; a data aparece junto da fonte.
 
 ## Rodando sem chave
 
@@ -65,6 +65,24 @@ Para desabilitar chamadas de IA, use `SENSO_INTERPRETER=rules`. Não é necessá
 
 Ambos recebem os mesmos trechos recuperados, prompt, schema e validador de filtros. Os adaptadores diferem na autenticação, formato HTTP e leitura da resposta. Usamos `fetch` direto, limite de 400 tokens de saída, timeout de 12 segundos e nenhuma tentativa automática. A interpretação não tem cache; a consulta SIDRA mantém o cache de 24 horas.
 
+## Conferindo e atualizando as fontes
+
+```bash
+npm run sources:check
+```
+
+O comando consulta os metadados e períodos oficiais e gera `review.md` e `review.json` em uma pasta `.senso/sources/review-.../`, sem alterar os snapshots ativos. Confira as diferenças e use o ID informado no relatório:
+
+```bash
+npm run sources:apply -- --review review-ID
+```
+
+A aplicação usa exatamente os candidatos revisados, sem nova chamada de rede. Ela bloqueia fontes incompatíveis, coleta incompleta, candidatos modificados e revisões feitas antes de uma edição local. Os relatórios ficam fora do Git; os snapshots aceitos continuam versionados. Nenhum desses comandos usa LLM ou chave de API.
+
+Após aplicar, confira `git diff -- src/data/sidra/`, rode os testes e a avaliação de recuperação. Em produção, faça novo build e reinicie para publicar as novas cópias. A data de conferência não muda o período estatístico. Consulte os detalhes e a recuperação de falhas em [Atualização das fontes](./conhecimento/15-atualizacao-e-revisao-das-fontes.md).
+
+A conferência real de 20/09/2026 não encontrou mudanças de conteúdo: somente a data de conferência dos dois snapshots foi atualizada.
+
 ## Verificação e avaliação
 
 ```bash
@@ -103,8 +121,11 @@ page.tsx
 - `src/lib/llm-provider.ts`: seleção de Gemini ou OpenAI por configuração.
 - `src/lib/population-prompt.ts`: instruções compartilhadas e contexto recuperado.
 - `src/lib/population-retrieval.ts`: trechos com proveniência, filtro por ano e busca textual local.
-- `src/data/sidra/`: snapshots oficiais dos metadados e períodos, conferidos em 06/09/2026.
+- `src/data/sidra/`: snapshots oficiais dos metadados e períodos, conferidos em 20/09/2026.
 - `scripts/eval-retrieval.ts`: avaliação da busca sem chamadas externas.
+- `scripts/check-sources.ts` e `apply-sources.ts`: coleta, relatório e aplicação revisada dos snapshots.
+- `scripts/lib/sidra-snapshot.ts`: validação de estrutura e compatibilidade com o catálogo.
+- `scripts/lib/source-review.ts`: comparação, integridade da revisão e atualização de arquivos.
 - `src/lib/gemini-json.ts` e `openai-json.ts`: transporte HTTP e leitura de respostas estruturadas.
 - `src/lib/gemini-population.ts` e `openai-population.ts`: contrato de interpretação de população sobre o transporte compartilhado.
 - `src/lib/source-facts.ts`: explicações preparadas e recuperação por tabela/ano.
