@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { readQuestion, RequestInputError } from "@/lib/api-question";
-import { interpretQuestion } from "@/lib/interpret-question";
 import { QueryError } from "@/lib/population";
 import { InterpretationError } from "@/lib/population-interpretation";
-import { fetchPopulation, SidraDataUnavailableError } from "@/lib/sidra";
+import { explainSource } from "@/lib/source-explanation";
 
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, { status, headers: { "Cache-Control": "no-store" } });
@@ -11,14 +10,11 @@ function json(body: unknown, status = 200) {
 
 export async function POST(request: Request) {
   try {
-    const interpretation = await interpretQuestion(await readQuestion(request));
-    const result = await fetchPopulation(interpretation.query);
-    return json({ ...result, interpretation: { method: interpretation.method, context: interpretation.context } });
+    return json(await explainSource(await readQuestion(request)));
   } catch (error) {
     if (error instanceof RequestInputError) return json({ error: error.message }, error.status);
     if (error instanceof QueryError) return json({ error: error.message }, 400);
     if (error instanceof InterpretationError) return json({ error: error.message }, error.status);
-    if (error instanceof SidraDataUnavailableError) return json({ error: error.message }, 404);
-    return json({ error: "Não foi possível consultar a fonte oficial do IBGE agora. Tente novamente em instantes." }, 502);
+    return json({ error: "Não foi possível explicar a fonte agora. Tente novamente em instantes." }, 502);
   }
 }

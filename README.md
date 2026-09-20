@@ -10,6 +10,18 @@ A interpretação tem dois caminhos: regras para frases já reconhecidas e, Gemi
 
 Municípios, população atual, outros indicadores, comparações e filtros demográficos permanecem fora do escopo. São Paulo e Rio de Janeiro precisam de sigla ou indicação de estado para evitar confusão com a cidade.
 
+## Entender a fonte
+
+Na interface, escolha **Entender a fonte** e experimente:
+
+- “Qual tabela usamos para população em 2010?”
+- “Quais anos estão disponíveis na tabela 202?”
+- “Qual é a unidade da população na tabela 4709?”
+
+O modo explica tabela, períodos, unidade, recortes geográficos e classificações, com citações numeradas e evidências conferíveis. Informe uma tabela ou um ano; aqui não há ano padrão. A IA seleciona até três fatos da base recuperada e o servidor resolve seus textos e URLs. A explicação distingue capacidades da fonte de limitações do aplicativo.
+
+Esse modo precisa de Gemini ou OpenAI configurado. Não consulta valores populacionais nem responde livremente sobre metodologia, margem de erro ou causas. Perguntas numéricas continuam na opção **Consultar população**. Os snapshots usados nas explicações foram coletados em 06/09/2026; a data aparece junto da fonte.
+
 ## Rodando sem chave
 
 ```bash
@@ -66,9 +78,11 @@ npm run build
 
 ```bash
 npm run eval:llm
+# Avaliação separada: dez perguntas de explicação e recusa (consome cota/tokens)
+npm run eval:sources
 ```
 
-Ela compara território e ano para perguntas suportadas e espera recusa para ambiguidades e pedidos fora do escopo. Falhas de rede não contam como recusas corretas. Não é uma prova de segurança ou correção para todas as perguntas.
+`eval:llm` compara território e ano para perguntas suportadas e espera recusa para ambiguidades e pedidos fora do escopo. `eval:sources` avalia seleção de evidências e recusas de perguntas sem suporte. Na execução inicial de fontes em 20/09/2026, foram 9/10 casos aprovados e um timeout; os testes locais não comprovam estabilidade da API. Falhas de rede não contam como recusas corretas. Não é uma prova de segurança ou correção para todas as perguntas.
 
 ## Fluxo e arquivos
 
@@ -91,8 +105,11 @@ page.tsx
 - `src/lib/population-retrieval.ts`: trechos com proveniência, filtro por ano e busca textual local.
 - `src/data/sidra/`: snapshots oficiais dos metadados e períodos, conferidos em 06/09/2026.
 - `scripts/eval-retrieval.ts`: avaliação da busca sem chamadas externas.
-- `src/lib/gemini-population.ts`: chamada Gemini e tratamento da resposta.
-- `src/lib/openai-population.ts`: chamada OpenAI e tratamento da resposta.
+- `src/lib/gemini-json.ts` e `openai-json.ts`: transporte HTTP e leitura de respostas estruturadas.
+- `src/lib/gemini-population.ts` e `openai-population.ts`: contrato de interpretação de população sobre o transporte compartilhado.
+- `src/lib/source-facts.ts`: explicações preparadas e recuperação por tabela/ano.
+- `src/lib/source-explanation.ts`: seleção de evidências pelo modelo e validação de IDs.
+- `src/lib/api-question.ts`: validação de entrada compartilhada pelas rotas POST.
 - `src/lib/population-interpretation.ts`: schema JSON, validação da proposta e erros de interpretação.
 - `src/lib/sidra.ts`: consulta oficial, cache de 24 horas e validação do dado.
 - `tests/`: testes determinísticos e de integração com mocks.
@@ -102,6 +119,8 @@ page.tsx
 
 A interface envia `POST /api/consulta` com JSON `{ "pergunta": "Qual a população de MG em 2010?" }`. São aceitos apenas esse campo e perguntas de até 300 caracteres, com limite de 4 KiB no corpo. O resultado inclui `interpretation.method` (`rules`, `gemini` ou `openai`) e `interpretation.context` (os trechos efetivamente fornecidos ao modelo; vazio no caminho por regras), além dos campos estatísticos existentes. A interface mostra o contexto em uma seção expansível com as fontes oficiais. URLs e textos dessa seção vêm da base local, nunca da geração do modelo.
 
+`POST /api/fontes` aceita o mesmo corpo `{ "pergunta": "..." }` e retorna `{ method, facts }`, com texto, evidência e fonte para cada fato selecionado. Essa rota não consulta a API de valores do SIDRA. Ela também exige JSON, campo único, até 300 caracteres e 4 KiB de corpo.
+
 A rota anterior `GET /api/ibge/populacao?pergunta=...` continua disponível e usa exclusivamente regras. Sem parâmetros, consulta Brasil em 2022.
 
 Na nova rota, 400 indica entrada inválida ou não suportada; 413, corpo muito grande; 415, tipo de conteúdo incorreto; 404, ausência de valor numérico; 502, falha na interpretação ou na fonte; e 503, configuração/serviço de IA indisponível. O cliente tem timeout de 30 segundos para interpretação e consulta em sequência.
@@ -110,7 +129,7 @@ Na nova rota, 400 indica entrada inválida ou não suportada; 413, corpo muito g
 
 A pasta [`conhecimento`](./conhecimento) registra conceitos, decisões, dificuldades e explicações para entrevistas. Ela permanece local conforme o `.gitignore` existente.
 
-Leia o [primeiro RAG com busca textual](./conhecimento/13-primeiro-rag-com-metadados.md), [Gemini e troca de provedor](./conhecimento/12-gemini-e-adaptadores-de-llm.md) e o [plano do RAG](./conhecimento/10-quando-e-como-fazer-rag.md). O protótipo usa duas tabelas e quatro trechos; a tabela executável continua sendo escolhida pelo catálogo validado, conforme o ano. A recuperação contextualiza a proposta de filtros, sem delegar URLs ou números ao modelo. Respostas livres sobre metodologia e seleção entre indicadores ainda não foram implementadas. A próxima expansão exige documentos metodológicos verificados e avaliação própria.
+Leia o [primeiro RAG com busca textual](./conhecimento/13-primeiro-rag-com-metadados.md), [Gemini e troca de provedor](./conhecimento/12-gemini-e-adaptadores-de-llm.md) e o [plano do RAG](./conhecimento/10-quando-e-como-fazer-rag.md). O protótipo usa duas tabelas e quatro trechos; a tabela executável continua sendo escolhida pelo catálogo validado, conforme o ano. A recuperação contextualiza a proposta de filtros, sem delegar URLs ou números ao modelo. O modo **Entender a fonte**, detalhado em [Explicações com citações](./conhecimento/14-explicacoes-de-fontes-com-citacoes.md), recupera os cinco fatos da tabela identificada e usa a IA para selecionar as explicações. Respostas livres sobre metodologia e seleção entre indicadores ainda não foram implementadas. A próxima expansão exige documentos metodológicos verificados e avaliação própria.
 
 ## Fontes
 

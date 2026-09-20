@@ -1,4 +1,12 @@
 @import "tailwindcss";
+.query-modes { display:flex; flex-wrap:wrap; gap:8px; margin-top:22px; }
+.query-modes button { background:transparent; border:1px solid var(--line); border-radius:8px; color:var(--moss); padding:9px 12px; font-size:.85rem; }
+.query-modes button[aria-pressed="true"] { background:var(--mint); border-color:var(--moss); font-weight:700; }
+.source-answer section { margin-top:20px; line-height:1.65; font-size:.92rem; }
+.source-answer a { color:var(--moss); text-decoration:underline; text-underline-offset:3px; }
+.source-answer details { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:8px; font-size:.82rem; overflow-wrap:anywhere; }
+.source-answer summary { cursor:pointer; color:var(--moss); font-weight:700; }
+.source-answer details p { margin:10px 0; }
 .reference-context { border-top:1px solid var(--line); margin-top:24px; padding-top:18px; font-size:.85rem; line-height:1.6; }
 .reference-context summary { color:var(--moss); cursor:pointer; font-weight:700; }
 .reference-context article { margin-top:20px; }
