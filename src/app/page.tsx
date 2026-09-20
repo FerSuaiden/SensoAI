@@ -6,7 +6,7 @@ import type { SourceExplanation } from "@/lib/source-explanation";
 
 const exampleQuestions = ["Qual a população do Brasil?", "Qual a população de MG em 2010?", "Quantas pessoas moravam no Brasil em 2000?"];
 
-const sourceQuestions = ["Qual tabela usamos para população em 2010?", "Quais anos estão disponíveis na tabela 202?", "Qual é a unidade da população na tabela 4709?"];
+const sourceQuestions = ["O que significa população residente no Censo 2022?", "Qual é a data de referência do Censo 2022?", "Quais anos estão disponíveis na tabela 202?"];
 
 export default function Home() {
   const [mode, setMode] = useState<"population" | "sources">("population");
@@ -57,7 +57,7 @@ export default function Home() {
         </div>
         <p className="scope-note" id="query-scope">{mode === "population"
           ? "Censos 2000, 2010 e 2022 · Brasil, estados e Distrito Federal. Sem ano, usamos 2022. Use a sigla para uma UF e consulte um ano por vez. Municípios ainda não são suportados."
-          : "Pergunte sobre a tabela, os anos disponíveis, a unidade ou os recortes. Indique um ano ou a tabela 202 ou 4709. Explicações sobre coleta, margem de erro e outros indicadores ainda não estão disponíveis."}</p>
+          : "Pergunte sobre tabelas, anos, unidades e recortes. Para o Censo 2022, também explicamos população residente e data de referência. Informe um ano ou a tabela 202 ou 4709. Procedimentos de coleta e margem de erro ainda não estão disponíveis."}</p>
         <form onSubmit={handleQuestion} className="question-form"><label className="sr-only" htmlFor="question">Sua pergunta sobre dados brasileiros</label><input id="question" value={question} onChange={(event) => { setQuestion(event.target.value); setResult(null); setExplanation(null); setMessage(""); }} placeholder={mode === "population" ? "Ex.: Qual a população de SP em 2022?" : "Ex.: Qual tabela usamos para população em 2010?"} autoComplete="off" maxLength={300} required disabled={isLoading} aria-describedby="query-scope" /><button type="submit" disabled={isLoading || !question.trim()}>{isLoading ? "Consultando..." : "Consultar"}</button></form>
         <div className="example-list" aria-label="Perguntas de exemplo">{(mode === "population" ? exampleQuestions : sourceQuestions).map((example) => <button key={example} type="button" disabled={isLoading} onClick={() => { setQuestion(example); setResult(null); setExplanation(null); setMessage(""); }}>{example}</button>)}</div>
         {isLoading && <p role="status" className="scope-note">{mode === "population" ? "Interpretando sua pergunta e consultando o IBGE…" : "Buscando referências para explicar a fonte…"}</p>}
@@ -65,13 +65,16 @@ export default function Home() {
         {explanation && (
           <article className="answer source-answer" aria-live="polite">
             <p className="answer-kicker">Sobre a fonte</p>
-            <p className="scope-note">Trechos selecionados a partir dos metadados oficiais. Os limites do Senso AI são escolhas do aplicativo.</p>
+            <p className="scope-note">Explicações baseadas em metadados e documentação oficial. Os limites do Senso AI são escolhas do aplicativo.</p>
             {explanation.facts.map((fact, index) => (
               <section key={fact.id}>
                 <p>{fact.text} <a href={`#citation-${fact.id}`} aria-label={`Ver fonte ${index + 1}`}>[{index + 1}]</a></p>
                 <details id={`citation-${fact.id}`}>
                   <summary>Conferir fonte [{index + 1}]</summary>
-                  <p>{fact.evidence}</p>
+                  {fact.source.locator && <p>{fact.source.locator}</p>}
+                  {fact.evidenceType === "quotation"
+                    ? <blockquote>“{fact.evidence}”</blockquote>
+                    : <p>Resumo da evidência: {fact.evidence}</p>}
                   <a href={fact.source.url} target="_blank" rel="noreferrer">{fact.source.title} ↗</a>
                   <p className="scope-note">Cópia consultada em <time dateTime={fact.source.retrievedAt}>{fact.source.retrievedAt.split("-").reverse().join("/")}</time>.</p>
                 </details>

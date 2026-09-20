@@ -12,7 +12,8 @@
     "eval:retrieval": "tsx --conditions=react-server scripts/eval-retrieval.ts",
     "eval:sources": "node --env-file=.env.local --conditions=react-server --import=tsx scripts/eval-sources.ts",
     "sources:check": "tsx scripts/check-sources.ts",
-    "sources:apply": "tsx scripts/apply-sources.ts"
+    "sources:apply": "tsx scripts/apply-sources.ts",
+    "methodology:check": "tsx scripts/check-methodology.ts"
   },
   "dependencies": {
     "next": "16.3.4",

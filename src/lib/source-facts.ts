@@ -1,6 +1,7 @@
 import "server-only";
 import historical from "../data/sidra/202.json";
 import current from "../data/sidra/4709.json";
+import census2022 from "../data/methodology/censo-2022.json";
 import { getPopulationDataset, POPULATION_PERIODS } from "./population-catalog";
 import { normalizePopulationQuestion, QueryError, validateQuestionText } from "./population";
 
@@ -8,12 +9,14 @@ export type SourceFact = {
   id: string;
   table: string;
   topic: string;
+  period?: string;
   text: string;
   evidence: string;
-  source: { title: string; url: string; retrievedAt: string };
+  evidenceType?: string;
+  source: { title: string; url: string; retrievedAt: string; locator?: string };
 };
 
-export const sourceFacts: SourceFact[] = [historical, current].flatMap((snapshot) => {
+const metadataFacts: SourceFact[] = [historical, current].flatMap((snapshot) => {
   const { metadata, periods } = snapshot;
   const table = String(metadata.id);
   const supportedYears = POPULATION_PERIODS.filter((period) => getPopulationDataset(period).table === table);
@@ -38,6 +41,15 @@ export const sourceFacts: SourceFact[] = [historical, current].flatMap((snapshot
   ];
 });
 
+export const sourceFacts: SourceFact[] = [...metadataFacts, ...census2022.facts.map((fact) => ({
+  id: fact.id, table: fact.table, period: fact.period, topic: fact.topic,
+  text: fact.text, evidence: fact.evidence, evidenceType: fact.evidenceType,
+  source: {
+    title: census2022.title, url: `${census2022.url}#page=${fact.pdfPage}`, retrievedAt: census2022.retrievedAt,
+    locator: `${fact.section} · p. ${fact.printedPage} impressa (p. ${fact.pdfPage} do PDF)`,
+  },
+}))];
+
 /** Referências explícitas são filtros, nunca anos deduzidos de um código de tabela. */
 export function retrieveSourceFacts(input: string): SourceFact[] {
   const question = normalizePopulationQuestion(validateQuestionText(input));
@@ -58,6 +70,6 @@ export function retrieveSourceFacts(input: string): SourceFact[] {
     table ||= String(matching[0].metadata.id);
   }
   if (!table) throw new QueryError("Indique a tabela 202 ou 4709, ou um ano, como 2010 ou 2022, para identificar a fonte.");
-  // Uma tabela tem só cinco fatos curtos; preservar todos evita perder evidência complementar.
-  return sourceFacts.filter((fact) => fact.table === table);
+  // Base pequena: preservar os fatos da tabela, respeitando o ano de notas metodológicas.
+  return sourceFacts.filter((fact) => fact.table === table && (!fact.period || !years.length || fact.period === years[0]));
 }

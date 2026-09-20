@@ -1,0 +1,34 @@
+{
+  "id": "censo-2022-conceitos",
+  "title": "IBGE · Censo Demográfico 2022: População e domicílios — Primeiros resultados",
+  "url": "https://biblioteca.ibge.gov.br/visualizacao/livros/liv102011.pdf",
+  "publishedYear": "2023",
+  "retrievedAt": "2026-09-20",
+  "sha256": "5a69cf122fb16c5fc954ffc2a7e1c071a1ea79bb9ddf5c21fa614b1c9d7a8b89",
+  "facts": [
+    {
+      "id": "2022-resident-definition",
+      "table": "4709",
+      "period": "2022",
+      "topic": "resident-definition",
+      "evidenceType": "quotation",
+      "text": "No Censo 2022, população residente reúne os moradores dos domicílios na data de referência, contados em seu local habitual de residência. Abrange domicílios particulares e coletivos.",
+      "evidence": "A população residente é constituída pelos moradores dos domicílios na data de referência.",
+      "section": "Conceitos e definições · Data de referência e População residente",
+      "printedPage": 11,
+      "pdfPage": 16
+    },
+    {
+      "id": "2022-reference-date",
+      "table": "4709",
+      "period": "2022",
+      "topic": "reference-date",
+      "evidenceType": "summary",
+      "text": "O Censo 2022 adotou como referência a meia-noite entre 31 de julho e 1º de agosto de 2022. Pessoas nascidas depois desse marco não entram na contagem; moradores que morreram depois dele entram. O resultado descreve aquele momento, e não uma estimativa da população atual.",
+      "evidence": "Marco temporal fixo em 2022, com inclusão determinada pela condição de moradia nesse marco.",
+      "section": "Conceitos e definições · Data de referência",
+      "printedPage": 11,
+      "pdfPage": 16
+    }
+  ]
+}

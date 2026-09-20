@@ -31,7 +31,7 @@ function envelope(value: unknown) {
 test("recuperação distingue código de tabela e ano, sem período implícito", () => {
   for (const [text, table] of [[question, "202"], ["Unidade da tabela 4709", "4709"], ["Anos da tabela 202", "202"], ["Tabela para 1970", "202"]]) {
     const context = retrieveSourceFacts(text);
-    assert.equal(context.length, 5);
+    assert.equal(context.length, table === "4709" ? 7 : 5);
     assert.ok(context.every((fact) => fact.table === table));
   }
   for (const text of ["Qual é a unidade?", "Tabela 202 em 2022", "Tabela 4709 em 2010", "Tabela 999", "Tabela 202 e tabela 4709", "Anos 2010 e 2022", "População em 2015"]) {
@@ -109,5 +109,22 @@ test("timeout na explicação não gera retry nem troca de provedor", async (t) 
   const response = await POST(request());
   assert.equal(response.status, 502);
   assert.equal((await response.json()).facts, undefined);
+  assert.equal(mock.mock.callCount(), 1);
+});
+
+test("rota explica conceito de 2022 com citação da página oficial e sem consultar números", async (t) => {
+  const mock = t.mock.method(globalThis, "fetch", async (url: Parameters<typeof fetch>[0], options?: RequestInit) => {
+    assert.match(String(url), /^https:\/\/generativelanguage.googleapis.com\//);
+    const body = JSON.parse(String(options?.body));
+    assert.match(body.systemInstruction.parts[0].text, /Não extrapole uma definição de 2022/);
+    return Response.json(envelope({ status: "supported", factIds: ["2022-resident-definition", "2022-reference-date"] }));
+  });
+  const response = await POST(request("Explique população residente e data de referência no Censo 2022"));
+  assert.equal(response.status, 200);
+  const result = await response.json();
+  assert.equal(result.facts.length, 2);
+  assert.ok(result.facts.every((fact: { source: { url: string } }) => fact.source.url.endsWith("liv102011.pdf#page=16")));
+  assert.equal(result.facts[0].evidenceType, "quotation");
+  assert.equal(result.value, undefined);
   assert.equal(mock.mock.callCount(), 1);
 });

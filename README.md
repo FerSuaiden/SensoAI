@@ -17,10 +17,14 @@ Na interface, escolha **Entender a fonte** e experimente:
 - “Qual tabela usamos para população em 2010?”
 - “Quais anos estão disponíveis na tabela 202?”
 - “Qual é a unidade da população na tabela 4709?”
+- “O que significa população residente no Censo 2022?”
+- “Qual é a data de referência do Censo 2022?”
 
 O modo explica tabela, períodos, unidade, recortes geográficos e classificações, com citações numeradas e evidências conferíveis. Informe uma tabela ou um ano; aqui não há ano padrão. A IA seleciona até três fatos da base recuperada e o servidor resolve seus textos e URLs. A explicação distingue capacidades da fonte de limitações do aplicativo.
 
-Esse modo precisa de Gemini ou OpenAI configurado. Não consulta valores populacionais nem responde livremente sobre metodologia, margem de erro ou causas. Perguntas numéricas continuam na opção **Consultar população**. Os snapshots usados nas explicações foram conferidos em 20/09/2026; a data aparece junto da fonte.
+Também explica dois conceitos do Censo 2022 a partir de uma publicação oficial: população residente e data de referência. As citações indicam seção, página impressa e página do PDF. Esses fatos são restritos a 2022 e distinguem transcrição literal de resumo.
+
+Esse modo precisa de Gemini ou OpenAI configurado. Não consulta valores populacionais nem responde livremente sobre procedimentos de coleta, regras detalhadas de residência, margem de erro ou causas. Perguntas numéricas continuam na opção **Consultar população**. As fontes usadas nas explicações foram conferidas em 20/09/2026; a data aparece junto da fonte.
 
 ## Rodando sem chave
 
@@ -83,6 +87,14 @@ Após aplicar, confira `git diff -- src/data/sidra/`, rode os testes e a avalia�
 
 A conferência real de 20/09/2026 não encontrou mudanças de conteúdo: somente a data de conferência dos dois snapshots foi atualizada.
 
+O PDF metodológico tem uma conferência separada, sem alteração de arquivos:
+
+```bash
+npm run methodology:check
+```
+
+O comando compara o SHA-256 do PDF oficial com a versão usada na curadoria. Se mudar, retorna falha e pede releitura das páginas citadas. Mudança de bytes não prova mudança de significado; o conteúdo dos fatos exige revisão humana. `sources:check` e `sources:apply` continuam limitados aos JSONs de metadados e períodos. Veja [Conceitos do Censo e fontes metodológicas](./conhecimento/16-conceitos-do-censo-e-fontes-metodologicas.md).
+
 ## Verificação e avaliação
 
 ```bash
@@ -96,11 +108,11 @@ npm run build
 
 ```bash
 npm run eval:llm
-# Avaliação separada: dez perguntas de explicação e recusa (consome cota/tokens)
+# Avaliação separada: 18 perguntas de explicação e recusa (consome cota/tokens)
 npm run eval:sources
 ```
 
-`eval:llm` compara território e ano para perguntas suportadas e espera recusa para ambiguidades e pedidos fora do escopo. `eval:sources` avalia seleção de evidências e recusas de perguntas sem suporte. Na execução inicial de fontes em 20/09/2026, foram 9/10 casos aprovados e um timeout; os testes locais não comprovam estabilidade da API. Falhas de rede não contam como recusas corretas. Não é uma prova de segurança ou correção para todas as perguntas.
+`eval:llm` compara território e ano para perguntas suportadas e espera recusa para ambiguidades e pedidos fora do escopo. `eval:sources` avalia seleção de evidências e recusas de perguntas sem suporte. Na avaliação ampliada de 20/09/2026, passaram 15/18 casos: houve dois timeouts e uma falha de interpretação. Os cinco novos pedidos suportados sobre conceitos de 2022 escolheram os fatos esperados. Os 156 testes locais, lint e build passaram; testes com mocks não comprovam estabilidade da API. Falhas de integração não contam como recusas corretas. Não é uma prova de segurança ou correção para todas as perguntas.
 
 ## Fluxo e arquivos
 
@@ -122,6 +134,8 @@ page.tsx
 - `src/lib/population-prompt.ts`: instruções compartilhadas e contexto recuperado.
 - `src/lib/population-retrieval.ts`: trechos com proveniência, filtro por ano e busca textual local.
 - `src/data/sidra/`: snapshots oficiais dos metadados e períodos, conferidos em 20/09/2026.
+- `src/data/methodology/censo-2022.json`: fatos revisados, páginas e hash do PDF metodológico.
+- `scripts/check-methodology.ts`: conferência da versão do PDF, sem atualização automática de conteúdo.
 - `scripts/eval-retrieval.ts`: avaliação da busca sem chamadas externas.
 - `scripts/check-sources.ts` e `apply-sources.ts`: coleta, relatório e aplicação revisada dos snapshots.
 - `scripts/lib/sidra-snapshot.ts`: validação de estrutura e compatibilidade com o catálogo.
@@ -150,12 +164,13 @@ Na nova rota, 400 indica entrada inválida ou não suportada; 413, corpo muito g
 
 A pasta [`conhecimento`](./conhecimento) registra conceitos, decisões, dificuldades e explicações para entrevistas. Ela permanece local conforme o `.gitignore` existente.
 
-Leia o [primeiro RAG com busca textual](./conhecimento/13-primeiro-rag-com-metadados.md), [Gemini e troca de provedor](./conhecimento/12-gemini-e-adaptadores-de-llm.md) e o [plano do RAG](./conhecimento/10-quando-e-como-fazer-rag.md). O protótipo usa duas tabelas e quatro trechos; a tabela executável continua sendo escolhida pelo catálogo validado, conforme o ano. A recuperação contextualiza a proposta de filtros, sem delegar URLs ou números ao modelo. O modo **Entender a fonte**, detalhado em [Explicações com citações](./conhecimento/14-explicacoes-de-fontes-com-citacoes.md), recupera os cinco fatos da tabela identificada e usa a IA para selecionar as explicações. Respostas livres sobre metodologia e seleção entre indicadores ainda não foram implementadas. A próxima expansão exige documentos metodológicos verificados e avaliação própria.
+Leia o [primeiro RAG com busca textual](./conhecimento/13-primeiro-rag-com-metadados.md), [Gemini e troca de provedor](./conhecimento/12-gemini-e-adaptadores-de-llm.md) e o [plano do RAG](./conhecimento/10-quando-e-como-fazer-rag.md). A interpretação numérica usa duas tabelas e quatro trechos; a tabela executável continua sendo escolhida pelo catálogo validado, conforme o ano. A recuperação contextualiza a proposta de filtros, sem delegar URLs ou números ao modelo. O modo **Entender a fonte**, detalhado em [Explicações com citações](./conhecimento/14-explicacoes-de-fontes-com-citacoes.md), recupera cinco fatos para a tabela 202 ou sete para a 4709 e usa a IA para selecionar até três explicações. O [passo 16](./conhecimento/16-conceitos-do-censo-e-fontes-metodologicas.md) acrescenta dois conceitos metodológicos verificados de 2022. Geração livre, metodologia dos demais censos e seleção entre indicadores continuam fora do escopo.
 
 ## Fontes
 
 - [Tabela 202 — População residente](https://sidra.ibge.gov.br/tabela/202)
 - [Tabela 4709 — População residente](https://sidra.ibge.gov.br/tabela/4709)
+- [Censo 2022 — População e domicílios: Primeiros resultados, conceitos e definições](https://biblioteca.ibge.gov.br/visualizacao/livros/liv102011.pdf#page=16)
 - [OpenAI Docs — Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
 
 - [Gemini: saída estruturada em generateContent](https://ai.google.dev/gemini-api/docs/generate-content/structured-output)
